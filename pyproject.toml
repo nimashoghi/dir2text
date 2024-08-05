@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "dir2text"
+version = "0.1.0"
+description = ""
+authors = ["Nima Shoghi <nimashoghi@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+gitignore-parser = "^0.1.11"
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "*"
+rich = "*"
+ruff = "*"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+dir2text = "dir2text.main:main"
