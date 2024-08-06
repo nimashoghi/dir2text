@@ -6,37 +6,39 @@ from pathlib import Path
 
 from gitignore_parser import parse_gitignore
 
-
-def nested_defaultdict():
-    return defaultdict(nested_defaultdict)
+from ._util import create_common_parser
 
 
 def print_directory_tree(files: list[Path], base_dir: Path):
+    def nested_defaultdict():
+        return defaultdict(nested_defaultdict)
+
     def add_to_tree(tree, parts):
         for part in parts:
             tree = tree[part]
         return tree
 
-    def print_tree(tree, prefix=""):
+    def format_tree(tree, prefix=""):
+        result = []
         entries = sorted(
             tree.items(), key=lambda x: (not isinstance(x[1], defaultdict), x[0])
         )
         for i, (name, subtree) in enumerate(entries):
             is_last = i == len(entries) - 1
-            print(f"{prefix}{'└── ' if is_last else '├── '}{name}")
+            result.append(f"{prefix}{'└── ' if is_last else '├── '}{name}")
             if isinstance(subtree, defaultdict):
                 extension = "    " if is_last else "│   "
-                print_tree(subtree, prefix + extension)
+                result.extend(format_tree(subtree, prefix + extension))
+        return result
 
     file_tree = nested_defaultdict()
     for file in files:
         relative = file.relative_to(base_dir)
         add_to_tree(file_tree, relative.parts)
 
-    print("Directory structure:")
-    print(base_dir.name)
-    print_tree(file_tree)
-    print()
+    tree_lines = ["Directory structure:", base_dir.name]
+    tree_lines.extend(format_tree(file_tree))
+    return tree_lines
 
 
 def find_parent_gitignores(directory: Path) -> list[Path]:
@@ -138,37 +140,9 @@ def read_file_content(file_path: Path) -> str:
     return file_path.read_text(encoding="utf-8")
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Convert project files to a structured string representation."
-    )
-    parser.add_argument(
-        "directory", type=Path, help="The directory to search for files"
-    )
-    parser.add_argument(
-        "--extension", "-e", help="The file extension to search for (e.g., '.py')"
-    )
-    parser.add_argument(
-        "--include",
-        "-i",
-        action="append",
-        default=[],
-        help="Patterns to include (can be used multiple times)",
-    )
-    parser.add_argument(
-        "--exclude",
-        "-x",
-        action="append",
-        default=[],
-        help="Patterns to exclude (can be used multiple times)",
-    )
-    parser.add_argument(
-        "--gitignore",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Respect .gitignore files",
-    )
-    args = parser.parse_args()
+def main(args: argparse.Namespace | None = None):
+    if args is None:
+        args = create_common_parser().parse_args()
 
     matching_files = find_files_bfs(
         args.directory,
@@ -178,13 +152,17 @@ def main() -> None:
         args.gitignore,
     )
 
-    print_directory_tree(matching_files, args.directory)
+    tree_lines = print_directory_tree(matching_files, args.directory)
+    file_contents = []
 
     for file_path in matching_files:
         relative_path = file_path.relative_to(args.directory)
-        print(f"# BEGIN {relative_path}")
-        print(read_file_content(file_path))
-        print(f"# END {relative_path}\n")
+        file_contents.append(f"# BEGIN {relative_path}")
+        file_contents.append(read_file_content(file_path))
+        file_contents.append(f"# END {relative_path}\n")
+
+    print("\n".join(tree_lines))
+    print("\n".join(file_contents))
 
 
 if __name__ == "__main__":

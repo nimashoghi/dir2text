@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dir2text"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = ["Nima Shoghi <nimashoghi@gmail.com>"]
 readme = "README.md"
@@ -13,10 +13,12 @@ gitignore-parser = "^0.1.11"
 ipykernel = "*"
 rich = "*"
 ruff = "*"
+pyright = "*"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-dir2text = "dir2text.main:main"
+dir2text = "dir2text.text:main"
+dir2md = "dir2text.markdown:main"
