@@ -56,9 +56,14 @@ def print_directory_tree_md(files: list[Path], base_dir: Path):
     return tree_lines
 
 
+def create_parser() -> argparse.ArgumentParser:
+    parser = create_common_parser()
+    return parser
+
+
 def main(args: argparse.Namespace | None = None):
     if args is None:
-        args = create_common_parser().parse_args()
+        args = create_parser().parse_args()
 
     resolved_paths = resolve_paths(args.paths)
     file_contents = ["# Project Structure and Contents\n"]

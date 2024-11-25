@@ -36,10 +36,20 @@ def print_directory_tree_xml(files: list[Path], base_dir: Path) -> list[str]:
     return tree_lines
 
 
+def create_parser() -> argparse.ArgumentParser:
+    parser = create_common_parser()
+    parser.add_argument(
+        "--encode-xml",
+        action="store_true",
+        default=False,
+        help="HTML encode the XML content (default: False)",
+    )
+    return parser
+
+
 def main(args: argparse.Namespace | None = None) -> None:
-    """Main function for XML output format."""
     if args is None:
-        args = create_common_parser().parse_args()
+        args = create_parser().parse_args()
 
     resolved_paths = resolve_paths(args.paths)
     file_contents = ['<?xml version="1.0" encoding="UTF-8"?>', "<project>"]
