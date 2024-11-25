@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dir2text"
-version = "0.3.0"
+version = "0.4.0"
 description = ""
 authors = ["Nima Shoghi <nimashoghi@gmail.com>"]
 readme = "README.md"
@@ -22,6 +22,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 dir2text = "dir2text.text:main"
 dir2md = "dir2text.markdown:main"
+dir2xml = "dir2text.xml:main"
 
 [tool.pyright]
 typeCheckingMode = "standard"

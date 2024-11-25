@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 
-from . import markdown, text
+from . import markdown, text, xml
 from ._util import create_common_parser
 
 
@@ -23,6 +23,12 @@ def main():
         "markdown", parents=[create_common_parser()], help="Output in Markdown format"
     )
     parser_md.set_defaults(func=markdown.main)
+
+    # XML subcommand
+    parser_xml = subparsers.add_parser(
+        "xml", parents=[create_common_parser()], help="Output in XML format"
+    )
+    parser_xml.set_defaults(func=xml.main)
 
     args = parser.parse_args()
     args.func(args)
