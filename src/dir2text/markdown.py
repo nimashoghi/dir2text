@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
 
-from ._util import create_common_parser
+from ._util import create_common_parser, resolve_paths
 from .text import find_files_bfs, read_file_content
 
 EXTENSION_TO_LANGUAGE = {
@@ -58,28 +60,38 @@ def main(args: argparse.Namespace | None = None):
     if args is None:
         args = create_common_parser().parse_args()
 
-    matching_files = find_files_bfs(
-        args.directory,
-        args.extension,
-        args.include,
-        args.exclude,
-        args.gitignore,
-    )
-
-    tree_lines = print_directory_tree_md(matching_files, args.directory)
+    resolved_paths = resolve_paths(args.paths)
     file_contents = ["# Project Structure and Contents\n"]
+    all_files = []
 
-    for file_path in matching_files:
-        relative_path = file_path.relative_to(args.directory)
+    for path in resolved_paths:
+        if path.is_file():
+            all_files.append(path)
+            base_dir = path.parent
+        else:
+            matching_files = find_files_bfs(
+                path,
+                args.extension,
+                args.include,
+                args.exclude,
+                args.gitignore,
+            )
+            all_files.extend(matching_files)
+            base_dir = path
+
+        if len(resolved_paths) == 1:
+            tree_lines = print_directory_tree_md(all_files, base_dir)
+            print("\n".join(tree_lines))
+
+    for file_path in sorted(all_files):
+        relative_path = file_path.name if file_path.parent == Path(".") else file_path
         file_contents.append(f"## {relative_path}\n")
 
-        language = EXTENSION_TO_LANGUAGE.get(file_path.suffix, "")
+        language = EXTENSION_TO_LANGUAGE.get(file_path.suffix.lstrip("."), "")
         file_contents.append(f"```{language}")
         file_contents.append(read_file_content(file_path))
         file_contents.append("```\n")
 
-    # Print in reverse order
-    print("\n".join(tree_lines))
     print("\n".join(file_contents))
 
 

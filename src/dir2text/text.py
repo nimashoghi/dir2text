@@ -1,167 +1,127 @@
+from __future__ import annotations
+
 import argparse
 import fnmatch
-from collections import defaultdict, deque
-from collections.abc import Callable
+import os
+from collections.abc import Sequence
 from pathlib import Path
 
 from gitignore_parser import parse_gitignore
 
-from ._util import create_common_parser
+from ._util import create_common_parser, resolve_paths
 
 
-def print_directory_tree(files: list[Path], base_dir: Path):
-    def nested_defaultdict():
-        return defaultdict(nested_defaultdict)
-
-    def add_to_tree(tree, parts):
-        for part in parts:
-            tree = tree[part]
-        return tree
-
-    def format_tree(tree, prefix=""):
-        result = []
-        entries = sorted(
-            tree.items(), key=lambda x: (not isinstance(x[1], defaultdict), x[0])
-        )
-        for i, (name, subtree) in enumerate(entries):
-            is_last = i == len(entries) - 1
-            result.append(f"{prefix}{'└── ' if is_last else '├── '}{name}")
-            if isinstance(subtree, defaultdict):
-                extension = "    " if is_last else "│   "
-                result.extend(format_tree(subtree, prefix + extension))
-        return result
-
-    file_tree = nested_defaultdict()
-    for file in files:
-        relative = file.relative_to(base_dir)
-        add_to_tree(file_tree, relative.parts)
-
-    tree_lines = ["Directory structure:", base_dir.name]
-    tree_lines.extend(format_tree(file_tree))
-    return tree_lines
-
-
-def find_parent_gitignores(directory: Path) -> list[Path]:
-    gitignores = []
-    current = Path(directory).absolute()
-    while current != current.parent:
-        gitignore = current / ".gitignore"
-        if gitignore.is_file():
-            gitignores.append(gitignore)
-        current = current.parent
-    return list(reversed(gitignores))  # Reverse to respect override order
-
-
-def should_ignore(path: str, gitignore_matchers: list[Callable[..., bool]]) -> bool:
-    # Ignore some common files
-    if path in (
-        ".gitignore",
-        ".git",
-        ".hg",
-        ".svn",
-        ".DS_Store",
-        "package-lock.json",
-        "yarn.lock",
-        "poetry.lock",
-        "Pipfile.lock",
-        "pixi.lock",
-    ):
-        return True
-
-    return any(matcher(path) for matcher in gitignore_matchers)
+def read_file_content(file_path: Path) -> str:
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except UnicodeDecodeError:
+        return "[Binary file]"
 
 
 def find_files_bfs(
     directory: Path,
-    extension: str | None,
-    include_patterns: list[str],
-    exclude_patterns: list[str],
-    respect_gitignore: bool,
+    extension: str | None = None,
+    include_patterns: Sequence[str] = [],
+    exclude_patterns: Sequence[str] = [],
+    respect_gitignore: bool = True,
 ) -> list[Path]:
-    result = []
-    queue = deque([(directory, [])])
+    matches = []
+    gitignore_matcher = None
 
     if respect_gitignore:
-        parent_gitignores = find_parent_gitignores(directory)
-        parent_matchers = [
-            parse_gitignore(gitignore) for gitignore in parent_gitignores
-        ]
-    else:
-        parent_matchers = []
+        gitignore_path = directory / ".gitignore"
+        if gitignore_path.exists():
+            gitignore_matcher = parse_gitignore(gitignore_path)
 
-    while queue:
-        current_dir, current_matchers = queue.popleft()
+    for root, _, files in os.walk(directory):
+        root_path = Path(root)
 
-        # Skip the .git directory
-        if current_dir.name == ".git":
-            continue
+        for file in files:
+            file_path = root_path / file
+            relative_path = file_path.relative_to(directory)
 
-        # Check for a .gitignore in the current directory
-        if respect_gitignore:
-            current_gitignore = current_dir / ".gitignore"
-            if current_gitignore.is_file():
-                current_matchers = (
-                    parent_matchers
-                    + current_matchers
-                    + [parse_gitignore(current_gitignore)]
-                )
-            else:
-                current_matchers = parent_matchers + current_matchers
-
-        for item in current_dir.iterdir():
-            # Check if the item should be ignored based on accumulated gitignore rules
-            if respect_gitignore and should_ignore(str(item), current_matchers):
+            # Skip if matches gitignore
+            if gitignore_matcher and gitignore_matcher(str(file_path)):
                 continue
 
-            if item.is_file():
-                if extension and item.suffix != extension:
-                    continue
+            # Check extension
+            if extension and not str(file_path).endswith(extension):
+                continue
 
-                # Check include patterns
-                if include_patterns and not any(
-                    fnmatch.fnmatch(item.name, pattern) for pattern in include_patterns
-                ):
-                    continue
+            # Check include patterns
+            if include_patterns and not any(
+                fnmatch.fnmatch(str(relative_path), pattern)
+                for pattern in include_patterns
+            ):
+                continue
 
-                # Check exclude patterns
-                if any(
-                    fnmatch.fnmatch(item.name, pattern) for pattern in exclude_patterns
-                ):
-                    continue
+            # Check exclude patterns
+            if any(
+                fnmatch.fnmatch(str(relative_path), pattern)
+                for pattern in exclude_patterns
+            ):
+                continue
 
-                result.append(item)
-            elif item.is_dir():
-                queue.append((item, current_matchers))
+            matches.append(file_path)
 
-    return sorted(result)
-
-
-def read_file_content(file_path: Path) -> str:
-    return file_path.read_text(encoding="utf-8")
+    return sorted(matches)
 
 
-def main(args: argparse.Namespace | None = None):
+def print_directory_tree(files: Sequence[Path], base_dir: Path) -> list[str]:
+    def format_tree(path: Path, prefix: str = "") -> list[str]:
+        result = []
+        if path in files or any(f.is_relative_to(path) for f in files):
+            result.append(f"{prefix}{path.name}{'/' if path.is_dir() else ''}")
+            if path.is_dir():
+                children = sorted(path.iterdir(), key=lambda x: (x.is_dir(), x.name))
+                for i, child in enumerate(children):
+                    if child in files or any(f.is_relative_to(child) for f in files):
+                        if i == len(children) - 1:
+                            result.extend(format_tree(child, prefix + "    "))
+                        else:
+                            result.extend(format_tree(child, prefix + "│   "))
+        return result
+
+    tree_lines = ["Directory structure:", ""]
+    tree_lines.extend(format_tree(base_dir))
+    return tree_lines
+
+
+def main(args: argparse.Namespace | None = None) -> None:
     if args is None:
         args = create_common_parser().parse_args()
 
-    matching_files = find_files_bfs(
-        args.directory,
-        args.extension,
-        args.include,
-        args.exclude,
-        args.gitignore,
-    )
+    resolved_paths = resolve_paths(args.paths)
+    file_contents = ["Project Structure and Contents", ""]
+    all_files = []
 
-    tree_lines = print_directory_tree(matching_files, args.directory)
-    file_contents = []
+    for path in resolved_paths:
+        if path.is_file():
+            all_files.append(path)
+            base_dir = path.parent
+        else:
+            matching_files = find_files_bfs(
+                path,
+                args.extension,
+                args.include,
+                args.exclude,
+                args.gitignore,
+            )
+            all_files.extend(matching_files)
+            base_dir = path
 
-    for file_path in matching_files:
-        relative_path = file_path.relative_to(args.directory)
-        file_contents.append(f"# BEGIN {relative_path}")
+        if len(resolved_paths) == 1:
+            tree_lines = print_directory_tree(all_files, base_dir)
+            print("\n".join(tree_lines))
+            print()
+
+    for file_path in sorted(all_files):
+        relative_path = file_path.name if file_path.parent == Path(".") else file_path
+        file_contents.append(f"=== {relative_path} ===")
         file_contents.append(read_file_content(file_path))
-        file_contents.append(f"# END {relative_path}\n")
+        file_contents.append("")
 
-    print("\n".join(tree_lines))
     print("\n".join(file_contents))
 
 
