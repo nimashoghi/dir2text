@@ -40,7 +40,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser = create_common_parser()
     parser.add_argument(
         "--encode-xml",
-        action="store_true",
+        action=argparse.BooleanOptionalAction,
         default=False,
         help="HTML encode the XML content (default: False)",
     )
