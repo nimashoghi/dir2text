@@ -75,6 +75,7 @@ def main(args: argparse.Namespace | None = None):
                 args.include,
                 args.exclude,
                 args.gitignore,
+                args.dir2textignore,
             )
             all_files.extend(matching_files)
             base_dir = path

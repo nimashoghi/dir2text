@@ -52,4 +52,10 @@ def create_common_parser() -> argparse.ArgumentParser:
         default=True,
         help="Respect .gitignore files",
     )
+    parser.add_argument(
+        "--dir2textignore",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Respect .dir2textignore files",
+    )
     return parser

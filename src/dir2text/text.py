@@ -25,14 +25,23 @@ def find_files_bfs(
     include_patterns: Sequence[str] = [],
     exclude_patterns: Sequence[str] = [],
     respect_gitignore: bool = True,
+    respect_dir2textignore: bool = True,
 ) -> list[Path]:
     matches = []
     gitignore_matcher = None
+    dir2textignore_matcher = None
 
+    # Check for .gitignore
     if respect_gitignore:
         gitignore_path = directory / ".gitignore"
         if gitignore_path.exists():
             gitignore_matcher = parse_gitignore(gitignore_path)
+
+    # Check for .dir2textignore
+    if respect_dir2textignore:
+        dir2textignore_path = directory / ".dir2textignore"
+        if dir2textignore_path.exists():
+            dir2textignore_matcher = parse_gitignore(dir2textignore_path)
 
     for root, _, files in os.walk(directory):
         root_path = Path(root)
@@ -43,6 +52,10 @@ def find_files_bfs(
 
             # Skip if matches gitignore
             if gitignore_matcher and gitignore_matcher(str(file_path)):
+                continue
+
+            # Skip if matches dir2textignore
+            if dir2textignore_matcher and dir2textignore_matcher(str(file_path)):
                 continue
 
             # Check extension
@@ -107,6 +120,7 @@ def main(args: argparse.Namespace | None = None) -> None:
                 args.include,
                 args.exclude,
                 args.gitignore,
+                args.dir2textignore,
             )
             all_files.extend(matching_files)
             base_dir = path
