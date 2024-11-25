@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from ._util import create_common_parser, resolve_paths
+from ._util import count_tokens, create_common_parser, resolve_paths
 from .text import find_files_bfs, read_file_content
 
 EXTENSION_TO_LANGUAGE = {
@@ -68,6 +68,7 @@ def main(args: argparse.Namespace | None = None):
     resolved_paths = resolve_paths(args.paths)
     file_contents = ["# Project Structure and Contents\n"]
     all_files = []
+    total_content = ""
 
     for path in resolved_paths:
         if path.is_file():
@@ -87,17 +88,24 @@ def main(args: argparse.Namespace | None = None):
 
         if len(resolved_paths) == 1:
             tree_lines = print_directory_tree_md(all_files, base_dir)
-            print("\n".join(tree_lines))
+            tree_text = "\n".join(tree_lines)
+            total_content += tree_text + "\n\n"
+            print(tree_text)
 
     for file_path in sorted(all_files):
         relative_path = file_path.name if file_path.parent == Path(".") else file_path
-        file_contents.append(f"## {relative_path}\n")
-
+        header = f"## {relative_path}\n"
         language = EXTENSION_TO_LANGUAGE.get(file_path.suffix.lstrip("."), "")
-        file_contents.append(f"```{language}")
-        file_contents.append(read_file_content(file_path))
-        file_contents.append("```\n")
+        content = read_file_content(file_path)
 
+        file_section = f"{header}```{language}\n{content}\n```\n"
+        total_content += file_section
+        file_contents.append(file_section)
+
+    if args.count_tokens:
+        token_count = count_tokens(total_content)
+        token_info = f"*Total tokens: {token_count}*\n"
+        print(token_info)
     print("\n".join(file_contents))
 
 

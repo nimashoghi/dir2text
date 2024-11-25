@@ -4,7 +4,7 @@ import argparse
 import html
 from pathlib import Path
 
-from ._util import create_common_parser, resolve_paths
+from ._util import count_tokens, create_common_parser, resolve_paths
 from .text import find_files_bfs, read_file_content
 
 
@@ -54,6 +54,7 @@ def main(args: argparse.Namespace | None = None) -> None:
     resolved_paths = resolve_paths(args.paths)
     file_contents = ['<?xml version="1.0" encoding="UTF-8"?>', "<project>"]
     all_files = []
+    total_content = ""
 
     for path in resolved_paths:
         if path.is_file():
@@ -73,19 +74,28 @@ def main(args: argparse.Namespace | None = None) -> None:
 
         if len(resolved_paths) == 1:
             tree_lines = print_directory_tree_xml(all_files, base_dir)
+            tree_text = "\n".join(tree_lines)
+            total_content += tree_text + "\n"
             file_contents.extend(tree_lines)
 
     file_contents.append("<contents>")
     for file_path in sorted(all_files):
         relative_path = file_path.name if file_path.parent == Path(".") else file_path
-        file_contents.append(f'  <document path="{relative_path}">')
         content = read_file_content(file_path)
         if args.encode_xml:
             content = escape_xml_content(content)
-        file_contents.append(f"    {content}")
-        file_contents.append("  </document>")
+        doc_section = (
+            f'  <document path="{relative_path}">\n    {content}\n  </document>'
+        )
+        total_content += doc_section + "\n"
+        file_contents.append(doc_section)
 
     file_contents.append("</contents>")
+
+    if args.count_tokens:
+        token_count = count_tokens(total_content)
+        file_contents.insert(1, f'<tokens count="{token_count}"/>')
+
     file_contents.append("</project>")
     print("\n".join(file_contents))
 

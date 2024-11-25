@@ -8,7 +8,7 @@ from pathlib import Path
 
 from gitignore_parser import parse_gitignore
 
-from ._util import create_common_parser, resolve_paths
+from ._util import count_tokens, create_common_parser, resolve_paths
 
 
 def read_file_content(file_path: Path) -> str:
@@ -113,6 +113,7 @@ def main(args: argparse.Namespace | None = None) -> None:
     resolved_paths = resolve_paths(args.paths)
     file_contents = ["Project Structure and Contents", ""]
     all_files = []
+    total_content = ""
 
     for path in resolved_paths:
         if path.is_file():
@@ -132,15 +133,24 @@ def main(args: argparse.Namespace | None = None) -> None:
 
         if len(resolved_paths) == 1:
             tree_lines = print_directory_tree(all_files, base_dir)
-            print("\n".join(tree_lines))
+            tree_text = "\n".join(tree_lines)
+            total_content += tree_text + "\n\n"
+            print(tree_text)
             print()
 
     for file_path in sorted(all_files):
         relative_path = file_path.name if file_path.parent == Path(".") else file_path
-        file_contents.append(f"=== {relative_path} ===")
-        file_contents.append(read_file_content(file_path))
+        header = f"=== {relative_path} ==="
+        content = read_file_content(file_path)
+        total_content += header + "\n" + content + "\n\n"
+        file_contents.append(header)
+        file_contents.append(content)
         file_contents.append("")
 
+    if args.count_tokens:
+        token_count = count_tokens(total_content)
+        token_info = f"Total tokens: {token_count}\n"
+        print(token_info)
     print("\n".join(file_contents))
 
 
