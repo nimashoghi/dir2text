@@ -80,7 +80,9 @@ def main(args: argparse.Namespace | None = None) -> None:
         relative_path = file_path.name if file_path.parent == Path(".") else file_path
         file_contents.append(f'  <document path="{relative_path}">')
         content = read_file_content(file_path)
-        file_contents.append(f"    {escape_xml_content(content)}")
+        if args.encode_xml:
+            content = escape_xml_content(content)
+        file_contents.append(f"    {content}")
         file_contents.append("  </document>")
 
     file_contents.append("</contents>")
