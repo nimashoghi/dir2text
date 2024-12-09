@@ -178,20 +178,24 @@ def find_files_bfs(
     dir2textignore_matchers: list[Callable[[str], bool]] = []
 
     # Collect all .gitignore files from the directory to the root
+    log.debug(f"Looking for .gitignore files starting from {directory}")
     if respect_gitignore:
         current_dir = directory
         while current_dir != current_dir.parent:  # Traverse up to the root
             gitignore_path = current_dir / ".gitignore"
             if gitignore_path.exists():
+                log.debug(f"Using .gitignore file: {gitignore_path}")
                 gitignore_matchers.append(parse_gitignore(gitignore_path))
             current_dir = current_dir.parent
 
     # Collect all .dir2textignore files from the directory to the root
+    log.debug(f"Looking for .dir2textignore files starting from {directory}")
     if respect_dir2textignore:
         current_dir = directory
         while current_dir != current_dir.parent:  # Traverse up to the root
             dir2textignore_path = current_dir / ".dir2textignore"
             if dir2textignore_path.exists():
+                log.debug(f"Using .dir2textignore file: {dir2textignore_path}")
                 dir2textignore_matchers.append(parse_gitignore(dir2textignore_path))
             current_dir = current_dir.parent
 
