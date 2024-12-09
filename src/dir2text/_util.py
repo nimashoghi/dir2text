@@ -188,7 +188,6 @@ def find_files_bfs(
                 log.debug(f"Using .gitignore file: {gitignore_path}")
                 gitignore_matchers.append(parse_gitignore(gitignore_path))
             current_dir = current_dir.parent
-            print(current_dir)
 
     # Collect all .dir2textignore files from the directory to the root
     if respect_dir2textignore:
