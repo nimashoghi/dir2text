@@ -1,114 +1,17 @@
 from __future__ import annotations
 
 import argparse
-import fnmatch
-import os
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from pathlib import Path
 
-from gitignore_parser import parse_gitignore
-
 from ._util import (
-    convert_notebook_to_python,
     count_tokens,
     create_common_parser,
+    find_files_bfs,
+    read_file_content,
     resolve_paths,
 )
-
-
-def read_file_content(file_path: Path, ipython: bool = True) -> str:
-    """Read the content of a file.
-
-    Args:
-        file_path: Path to the file to read
-        ipython: Whether to convert IPython notebooks to Python scripts
-
-    Returns:
-        The content of the file as a string
-    """
-    try:
-        # Handle IPython notebooks
-        if ipython and file_path.suffix == ".ipynb":
-            return convert_notebook_to_python(file_path)
-
-        # Handle regular files
-        with open(file_path, "r", encoding="utf-8") as f:
-            return f.read()
-    except UnicodeDecodeError:
-        return "[Binary file]"
-
-
-def find_files_bfs(
-    directory: Path,
-    extension: str | None = None,
-    include_patterns: Sequence[str] = [],
-    exclude_patterns: Sequence[str] = [],
-    respect_gitignore: bool = True,
-    respect_dir2textignore: bool = True,
-) -> list[Path]:
-    matches: list[Path] = []
-    gitignore_matchers: list[Callable[[str], bool]] = []
-    dir2textignore_matchers: list[Callable[[str], bool]] = []
-
-    # Collect all .gitignore files from the directory to the root
-    if respect_gitignore:
-        current_dir = directory
-        while current_dir != current_dir.parent:  # Traverse up to the root
-            gitignore_path = current_dir / ".gitignore"
-            if gitignore_path.exists():
-                gitignore_matchers.append(parse_gitignore(gitignore_path))
-            current_dir = current_dir.parent
-
-    # Collect all .dir2textignore files from the directory to the root
-    if respect_dir2textignore:
-        current_dir = directory
-        while current_dir != current_dir.parent:  # Traverse up to the root
-            dir2textignore_path = current_dir / ".dir2textignore"
-            if dir2textignore_path.exists():
-                dir2textignore_matchers.append(parse_gitignore(dir2textignore_path))
-            current_dir = current_dir.parent
-
-    for root, dirs, files in os.walk(directory):
-        # Skip .git directories
-        if ".git" in dirs:
-            dirs.remove(".git")
-
-        root_path = Path(root)
-
-        for file in files:
-            file_path = root_path / file
-            relative_path = file_path.relative_to(directory)
-
-            # Skip if matches any gitignore
-            if any(matcher(str(file_path)) for matcher in gitignore_matchers):
-                continue
-
-            # Skip if matches any dir2textignore
-            if any(matcher(str(file_path)) for matcher in dir2textignore_matchers):
-                continue
-
-            # Check extension
-            if extension and not str(file_path).endswith(extension):
-                continue
-
-            # Check include patterns
-            if include_patterns and not any(
-                fnmatch.fnmatch(str(relative_path), pattern)
-                for pattern in include_patterns
-            ):
-                continue
-
-            # Check exclude patterns
-            if any(
-                fnmatch.fnmatch(str(relative_path), pattern)
-                for pattern in exclude_patterns
-            ):
-                continue
-
-            matches.append(file_path)
-
-    return sorted(matches)
 
 
 def print_directory_tree(files: Sequence[Path], base_dir: Path) -> list[str]:

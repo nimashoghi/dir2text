@@ -5,8 +5,13 @@ import html
 import sys
 from pathlib import Path
 
-from ._util import count_tokens, create_common_parser, resolve_paths
-from .text import find_files_bfs, read_file_content
+from ._util import (
+    count_tokens,
+    create_common_parser,
+    find_files_bfs,
+    read_file_content,
+    resolve_paths,
+)
 
 
 def escape_xml_content(content: str) -> str:
