@@ -9,6 +9,7 @@ from ._util import (
     count_tokens,
     create_common_parser,
     find_files_bfs,
+    main_init,
     read_file_content,
     resolve_paths,
 )
@@ -56,6 +57,8 @@ def create_parser() -> argparse.ArgumentParser:
 def main(args: argparse.Namespace | None = None) -> None:
     if args is None:
         args = create_parser().parse_args()
+
+    main_init(args)
 
     resolved_paths = resolve_paths(args.paths)
     file_contents = ['<?xml version="1.0" encoding="UTF-8"?>', "<project>"]

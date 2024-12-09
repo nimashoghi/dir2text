@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import glob
+import logging
 import os
 from collections.abc import Callable, Sequence
 from pathlib import Path
@@ -12,8 +13,14 @@ import tiktoken
 from gitignore_parser import parse_gitignore
 from nbconvert import PythonExporter
 
+log = logging.getLogger(__name__)
+logging.basicConfig(format="%(levelname)s: %(message)s", level=logging.INFO)
+
 
 def resolve_paths(paths: str | list[str]) -> list[Path]:
+    if logging.getLogger().getEffectiveLevel() == logging.DEBUG:
+        log.debug(f"Resolving paths: {paths}")
+
     if isinstance(paths, str):
         paths = [paths]
 
@@ -78,7 +85,23 @@ def create_common_parser() -> argparse.ArgumentParser:
         default=True,
         help="Convert IPython notebooks to Python scripts (default: True)",
     )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Enable verbose debug logging",
+    )
     return parser
+
+
+def main_init(args: argparse.Namespace) -> None:
+    """Initialize logging based on verbose flag"""
+    if args.verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+        log.debug("Debug logging enabled")
+    else:
+        logging.getLogger().setLevel(logging.INFO)
 
 
 def count_tokens(text: str, model: str = "gpt-4") -> int:
@@ -184,11 +207,22 @@ def find_files_bfs(
             relative_path = file_path.relative_to(directory)
 
             # Skip if matches any gitignore
-            if any(matcher(str(file_path)) for matcher in gitignore_matchers):
+            gitignore_matched = any(
+                matcher(str(file_path)) for matcher in gitignore_matchers
+            )
+            log.debug(f"Checking {file_path} against gitignore: {gitignore_matched}")
+            if gitignore_matched:
                 continue
 
             # Skip if matches any dir2textignore
-            if any(matcher(str(file_path)) for matcher in dir2textignore_matchers):
+            # if any(matcher(str(file_path)) for matcher in dir2textignore_matchers):
+            dir2textignore_matched = any(
+                matcher(str(file_path)) for matcher in dir2textignore_matchers
+            )
+            log.debug(
+                f"Checking {file_path} against dir2textignore: {dir2textignore_matched}"
+            )
+            if dir2textignore_matched:
                 continue
 
             # Check extension
