@@ -69,7 +69,11 @@ def find_files_bfs(
                 dir2textignore_matchers.append(parse_gitignore(dir2textignore_path))
             current_dir = current_dir.parent
 
-    for root, _, files in os.walk(directory):
+    for root, dirs, files in os.walk(directory):
+        # Skip .git directories
+        if ".git" in dirs:
+            dirs.remove(".git")
+
         root_path = Path(root)
 
         for file in files:
