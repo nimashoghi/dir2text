@@ -4,7 +4,7 @@ import argparse
 import fnmatch
 import os
 import sys
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 from gitignore_parser import parse_gitignore
@@ -47,21 +47,27 @@ def find_files_bfs(
     respect_gitignore: bool = True,
     respect_dir2textignore: bool = True,
 ) -> list[Path]:
-    matches = []
-    gitignore_matcher = None
-    dir2textignore_matcher = None
+    matches: list[Path] = []
+    gitignore_matchers: list[Callable[[str], bool]] = []
+    dir2textignore_matchers: list[Callable[[str], bool]] = []
 
-    # Check for .gitignore
+    # Collect all .gitignore files from the directory to the root
     if respect_gitignore:
-        gitignore_path = directory / ".gitignore"
-        if gitignore_path.exists():
-            gitignore_matcher = parse_gitignore(gitignore_path)
+        current_dir = directory
+        while current_dir != current_dir.parent:  # Traverse up to the root
+            gitignore_path = current_dir / ".gitignore"
+            if gitignore_path.exists():
+                gitignore_matchers.append(parse_gitignore(gitignore_path))
+            current_dir = current_dir.parent
 
-    # Check for .dir2textignore
+    # Collect all .dir2textignore files from the directory to the root
     if respect_dir2textignore:
-        dir2textignore_path = directory / ".dir2textignore"
-        if dir2textignore_path.exists():
-            dir2textignore_matcher = parse_gitignore(dir2textignore_path)
+        current_dir = directory
+        while current_dir != current_dir.parent:  # Traverse up to the root
+            dir2textignore_path = current_dir / ".dir2textignore"
+            if dir2textignore_path.exists():
+                dir2textignore_matchers.append(parse_gitignore(dir2textignore_path))
+            current_dir = current_dir.parent
 
     for root, _, files in os.walk(directory):
         root_path = Path(root)
@@ -70,12 +76,12 @@ def find_files_bfs(
             file_path = root_path / file
             relative_path = file_path.relative_to(directory)
 
-            # Skip if matches gitignore
-            if gitignore_matcher and gitignore_matcher(str(file_path)):
+            # Skip if matches any gitignore
+            if any(matcher(str(file_path)) for matcher in gitignore_matchers):
                 continue
 
-            # Skip if matches dir2textignore
-            if dir2textignore_matcher and dir2textignore_matcher(str(file_path)):
+            # Skip if matches any dir2textignore
+            if any(matcher(str(file_path)) for matcher in dir2textignore_matchers):
                 continue
 
             # Check extension
