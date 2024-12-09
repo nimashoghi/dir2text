@@ -8,11 +8,25 @@ from pathlib import Path
 
 from gitignore_parser import parse_gitignore
 
-from ._util import count_tokens, create_common_parser, resolve_paths
+from ._util import count_tokens, create_common_parser, resolve_paths, convert_notebook_to_python
 
 
-def read_file_content(file_path: Path) -> str:
+def read_file_content(file_path: Path, ipython: bool = True) -> str:
+    """Read the content of a file.
+
+    Args:
+        file_path: Path to the file to read
+        ipython: Whether to convert IPython notebooks to Python scripts
+
+    Returns:
+        The content of the file as a string
+    """
     try:
+        # Handle IPython notebooks
+        if ipython and file_path.suffix == ".ipynb":
+            return convert_notebook_to_python(file_path)
+
+        # Handle regular files
         with open(file_path, "r", encoding="utf-8") as f:
             return f.read()
     except UnicodeDecodeError:
@@ -141,7 +155,7 @@ def main(args: argparse.Namespace | None = None) -> None:
     for file_path in sorted(all_files):
         relative_path = file_path.name if file_path.parent == Path(".") else file_path
         header = f"=== {relative_path} ==="
-        content = read_file_content(file_path)
+        content = read_file_content(file_path, args.ipython)
         total_content += header + "\n" + content + "\n\n"
         file_contents.append(header)
         file_contents.append(content)

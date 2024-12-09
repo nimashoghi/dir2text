@@ -3,7 +3,8 @@ from __future__ import annotations
 import argparse
 import glob
 from pathlib import Path
-
+import nbformat
+from nbconvert import PythonExporter
 import tiktoken
 
 
@@ -66,6 +67,12 @@ def create_common_parser() -> argparse.ArgumentParser:
         default=True,
         help="Count and display the number of tokens in the output",
     )
+    parser.add_argument(
+        "--ipython",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Convert IPython notebooks to Python scripts (default: True)",
+    )
     return parser
 
 
@@ -87,3 +94,22 @@ def count_tokens(text: str, model: str = "gpt-4") -> int:
         # Fallback to cl100k_base if model-specific encoding is not found
         encoding = tiktoken.get_encoding("cl100k_base")
         return len(encoding.encode(text))
+
+
+def convert_notebook_to_python(file_path: Path) -> str:
+    """Convert an IPython notebook to Python script.
+
+    Args:
+        file_path: Path to the notebook file
+
+    Returns:
+        The notebook contents converted to a Python script as a string
+    """
+    try:
+        with open(file_path) as f:
+            nb = nbformat.read(f, as_version=4)
+        exporter = PythonExporter()
+        python_code, _ = exporter.from_notebook_node(nb)
+        return python_code
+    except Exception as e:
+        return f"[Error converting notebook: {str(e)}]"
