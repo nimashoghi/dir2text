@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 from ._util import count_tokens, create_common_parser, resolve_paths
@@ -101,12 +102,11 @@ def main(args: argparse.Namespace | None = None):
         file_section = f"{header}```{language}\n{content}\n```\n"
         total_content += file_section
         file_contents.append(file_section)
+    print("\n".join(file_contents))
 
     if args.count_tokens:
         token_count = count_tokens(total_content)
-        token_info = f"*Total tokens: {token_count}*\n"
-        print(token_info)
-    print("\n".join(file_contents))
+        print(f"\nTotal tokens: {token_count}", file=sys.stderr)
 
 
 if __name__ == "__main__":

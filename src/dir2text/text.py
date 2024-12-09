@@ -3,12 +3,18 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import os
+import sys
 from collections.abc import Sequence
 from pathlib import Path
 
 from gitignore_parser import parse_gitignore
 
-from ._util import count_tokens, create_common_parser, resolve_paths, convert_notebook_to_python
+from ._util import (
+    convert_notebook_to_python,
+    count_tokens,
+    create_common_parser,
+    resolve_paths,
+)
 
 
 def read_file_content(file_path: Path, ipython: bool = True) -> str:
@@ -161,11 +167,11 @@ def main(args: argparse.Namespace | None = None) -> None:
         file_contents.append(content)
         file_contents.append("")
 
+    print("\n".join(file_contents))
+
     if args.count_tokens:
         token_count = count_tokens(total_content)
-        token_info = f"Total tokens: {token_count}\n"
-        print(token_info)
-    print("\n".join(file_contents))
+        print(f"\nTotal tokens: {token_count}", file=sys.stderr)
 
 
 if __name__ == "__main__":

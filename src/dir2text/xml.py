@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import sys
 from pathlib import Path
 
 from ._util import count_tokens, create_common_parser, resolve_paths
@@ -91,13 +92,12 @@ def main(args: argparse.Namespace | None = None) -> None:
         file_contents.append(doc_section)
 
     file_contents.append("</contents>")
+    file_contents.append("</project>")
+    print("\n".join(file_contents))
 
     if args.count_tokens:
         token_count = count_tokens(total_content)
-        file_contents.insert(1, f'<tokens count="{token_count}"/>')
-
-    file_contents.append("</project>")
-    print("\n".join(file_contents))
+        print(f"\nTotal tokens: {token_count}", file=sys.stderr)
 
 
 if __name__ == "__main__":
