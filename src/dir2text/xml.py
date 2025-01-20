@@ -5,6 +5,8 @@ import html
 import sys
 from pathlib import Path
 
+from tqdm import tqdm
+
 from ._util import (
     count_tokens,
     create_common_parser,
@@ -88,7 +90,10 @@ def main(args: argparse.Namespace | None = None) -> None:
             file_contents.extend(tree_lines)
 
     file_contents.append("<contents>")
-    for file_path in sorted(all_files):
+    for file_path in (
+        pbar := tqdm(sorted(all_files), desc="Processing files", unit="file")
+    ):
+        pbar.set_postfix_str(file_path.name)
         relative_path = file_path.name if file_path.parent == Path(".") else file_path
         content = read_file_content(file_path)
         if args.encode_xml:

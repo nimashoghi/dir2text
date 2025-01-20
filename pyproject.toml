@@ -11,6 +11,7 @@ tiktoken = "*"
 gitignore-parser = "*"
 nbconvert = "*"
 nbformat = "*"
+tqdm = "*"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "*"

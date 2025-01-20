@@ -4,6 +4,8 @@ import argparse
 import sys
 from pathlib import Path
 
+from tqdm import tqdm
+
 from ._util import (
     count_tokens,
     create_common_parser,
@@ -101,7 +103,11 @@ def main(args: argparse.Namespace | None = None):
             total_content += tree_text + "\n\n"
             print(tree_text)
 
-    for file_path in sorted(all_files):
+    for file_path in (
+        pbar := tqdm(sorted(all_files), desc="Processing files", unit="file")
+    ):
+        pbar.set_postfix_str(file_path.name)
+
         relative_path = file_path.name if file_path.parent == Path(".") else file_path
         header = f"## {relative_path}\n"
         language = EXTENSION_TO_LANGUAGE.get(file_path.suffix.lstrip("."), "")
@@ -110,6 +116,7 @@ def main(args: argparse.Namespace | None = None):
         file_section = f"{header}```{language}\n{content}\n```\n"
         total_content += file_section
         file_contents.append(file_section)
+
     print("\n".join(file_contents))
 
     if args.count_tokens:
