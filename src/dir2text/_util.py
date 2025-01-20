@@ -92,6 +92,12 @@ def create_common_parser() -> argparse.ArgumentParser:
         default=False,
         help="Enable verbose debug logging",
     )
+    parser.add_argument(
+        "--exclude-lock-files",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Exclude lock files (e.g., Pipfile.lock, poetry.lock) from the output",
+    )
     return parser
 
 
@@ -170,6 +176,7 @@ def find_files_bfs(
     extension: str | None = None,
     include_patterns: Sequence[str] = [],
     exclude_patterns: Sequence[str] = [],
+    exclude_lock_files: bool = True,
     respect_gitignore: bool = True,
     respect_dir2textignore: bool = True,
 ) -> list[Path]:
@@ -211,6 +218,10 @@ def find_files_bfs(
         for file in files:
             file_path = root_path / file
             relative_path = file_path.relative_to(directory)
+
+            # Skip lock files if exclude_lock_files is True
+            if exclude_lock_files and fnmatch.fnmatch(str(file_path), "*.lock"):
+                continue
 
             # Skip if matches any gitignore
             gitignore_matched = any(

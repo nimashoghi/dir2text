@@ -91,6 +91,7 @@ def main(args: argparse.Namespace | None = None):
                 args.extension,
                 args.include,
                 args.exclude,
+                args.exclude_lock_files,
                 args.gitignore,
                 args.dir2textignore,
             )
