@@ -7,6 +7,7 @@ import logging
 import os
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import NamedTuple
 
 import nbformat
 import tiktoken
@@ -98,6 +99,18 @@ def create_common_parser() -> argparse.ArgumentParser:
         default=True,
         help="Exclude lock files (e.g., Pipfile.lock, poetry.lock) from the output",
     )
+    parser.add_argument(
+        "--output-gitignore",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Output the contents of .gitignore files",
+    )
+    parser.add_argument(
+        "--output-dir2textignore",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Output the contents of .dir2textignore files",
+    )
     return parser
 
 
@@ -171,6 +184,31 @@ def read_file_content(file_path: Path, ipython: bool = True) -> str:
         return "[Binary file]"
 
 
+class IgnoreMatchers(NamedTuple):
+    gitignore: list[Callable[[str], bool]]
+    dir2textignore: list[Callable[[str], bool]]
+
+
+def get_ignore_matchers(directory: Path) -> IgnoreMatchers:
+    """Get ignore matchers for a specific directory."""
+    gitignore_matchers: list[Callable[[str], bool]] = []
+    dir2textignore_matchers: list[Callable[[str], bool]] = []
+
+    # Check for .gitignore in current directory
+    gitignore_path = directory / ".gitignore"
+    if gitignore_path.exists():
+        log.debug(f"Using .gitignore file: {gitignore_path}")
+        gitignore_matchers.append(parse_gitignore(gitignore_path))
+
+    # Check for .dir2textignore in current directory
+    dir2textignore_path = directory / ".dir2textignore"
+    if dir2textignore_path.exists():
+        log.debug(f"Using .dir2textignore file: {dir2textignore_path}")
+        dir2textignore_matchers.append(parse_gitignore(dir2textignore_path))
+
+    return IgnoreMatchers(gitignore_matchers, dir2textignore_matchers)
+
+
 def find_files_bfs(
     directory: Path,
     extension: str | None = None,
@@ -180,86 +218,126 @@ def find_files_bfs(
     respect_gitignore: bool = True,
     respect_dir2textignore: bool = True,
 ) -> list[Path]:
+    """
+    Find files using breadth-first search while respecting nested ignore files.
+
+    Args:
+        directory: Root directory to start search from
+        extension: Optional file extension filter
+        include_patterns: Patterns to explicitly include
+        exclude_patterns: Patterns to explicitly exclude
+        exclude_lock_files: Whether to exclude lock files
+        respect_gitignore: Whether to respect .gitignore files
+        respect_dir2textignore: Whether to respect .dir2textignore files
+
+    Returns:
+        List of matching file paths
+    """
     matches: list[Path] = []
-    gitignore_matchers: list[Callable[[str], bool]] = []
-    dir2textignore_matchers: list[Callable[[str], bool]] = []
+    directory = Path(directory).resolve().absolute()
 
-    # Collect all .gitignore files from the directory to the root
-    if respect_gitignore:
-        log.debug(f"Looking for .gitignore files starting from {directory}")
-        current_dir = Path(directory).resolve().absolute()
-        # Traverse up to `/`
+    # Get ignore matchers that apply to the entire tree (from root down to start directory)
+    root_matchers = IgnoreMatchers([], [])
+    if respect_gitignore or respect_dir2textignore:
+        current_dir = directory
         while current_dir != current_dir.parent:
-            gitignore_path = current_dir / ".gitignore"
-            if gitignore_path.exists():
-                log.debug(f"Using .gitignore file: {gitignore_path}")
-                gitignore_matchers.append(parse_gitignore(gitignore_path))
+            ignore_matchers = get_ignore_matchers(current_dir)
+            if respect_gitignore:
+                root_matchers.gitignore.extend(ignore_matchers.gitignore)
+            if respect_dir2textignore:
+                root_matchers.dir2textignore.extend(ignore_matchers.dir2textignore)
             current_dir = current_dir.parent
 
-    # Collect all .dir2textignore files from the directory to the root
-    if respect_dir2textignore:
-        log.debug(f"Looking for .dir2textignore files starting from {directory}")
-        current_dir = Path(directory).resolve().absolute()
-        # Traverse up to `/`
-        while current_dir != current_dir.parent:
-            dir2textignore_path = current_dir / ".dir2textignore"
-            if dir2textignore_path.exists():
-                log.debug(f"Using .dir2textignore file: {dir2textignore_path}")
-                dir2textignore_matchers.append(parse_gitignore(dir2textignore_path))
-            current_dir = current_dir.parent
+    # Use a queue for BFS traversal
+    # Each entry is (directory_path, accumulated_ignore_matchers)
+    queue = [(directory, root_matchers)]
 
-    for root, dirs, files in os.walk(directory):
-        # Skip .git directories
-        if ".git" in dirs:
-            dirs.remove(".git")
+    while queue:
+        current_dir, current_matchers = queue.pop(0)
 
-        root_path = Path(root)
-
-        for file in files:
-            file_path = root_path / file
-            relative_path = file_path.relative_to(directory)
-
-            # Skip lock files if exclude_lock_files is True
-            if exclude_lock_files and fnmatch.fnmatch(str(file_path), "*.lock"):
-                continue
-
-            # Skip if matches any gitignore
-            gitignore_matched = any(
-                matcher(str(file_path)) for matcher in gitignore_matchers
+        try:
+            # Get additional ignore matchers for current directory
+            dir_matchers = get_ignore_matchers(current_dir)
+            combined_matchers = IgnoreMatchers(
+                current_matchers.gitignore
+                + (dir_matchers.gitignore if respect_gitignore else []),
+                current_matchers.dir2textignore
+                + (dir_matchers.dir2textignore if respect_dir2textignore else []),
             )
-            log.debug(f"Checking {file_path} against gitignore: {gitignore_matched}")
-            if gitignore_matched:
-                continue
 
-            # Skip if matches any dir2textignore
-            # if any(matcher(str(file_path)) for matcher in dir2textignore_matchers):
-            dir2textignore_matched = any(
-                matcher(str(file_path)) for matcher in dir2textignore_matchers
-            )
-            log.debug(
-                f"Checking {file_path} against dir2textignore: {dir2textignore_matched}"
-            )
-            if dir2textignore_matched:
-                continue
+            for entry in os.scandir(current_dir):
+                entry_path = Path(entry.path)
+                relative_path = entry_path.relative_to(directory)
 
-            # Check extension
-            if extension and not str(file_path).endswith(extension):
-                continue
+                if entry.is_dir():
+                    if entry.name == ".git":
+                        continue
 
-            # Check include patterns
-            if include_patterns and not any(
-                fnmatch.fnmatch(str(relative_path), pattern)
-                for pattern in include_patterns
-            ):
-                continue
+                    # Check if directory should be ignored
+                    if (
+                        respect_gitignore
+                        and any(
+                            matcher(str(entry_path))
+                            for matcher in combined_matchers.gitignore
+                        )
+                    ) or (
+                        respect_dir2textignore
+                        and any(
+                            matcher(str(entry_path))
+                            for matcher in combined_matchers.dir2textignore
+                        )
+                    ):
+                        log.debug(f"Skipping ignored directory: {entry_path}")
+                        continue
 
-            # Check exclude patterns
-            if any(
-                fnmatch.fnmatch(str(relative_path), pattern)
-                for pattern in exclude_patterns
-            ):
-                continue
+                    queue.append((entry_path, combined_matchers))
 
-            matches.append(file_path)
+                else:  # Regular file
+                    # Skip lock files if requested
+                    if exclude_lock_files and entry.name.endswith(".lock"):
+                        continue
 
-    return sorted(matches)
+                    # Check extension filter
+                    if extension and not entry.name.endswith(extension):
+                        continue
+
+                    # Check include patterns
+                    if include_patterns and not any(
+                        fnmatch.fnmatch(str(relative_path), pattern)
+                        for pattern in include_patterns
+                    ):
+                        continue
+
+                    # Check exclude patterns
+                    if any(
+                        fnmatch.fnmatch(str(relative_path), pattern)
+                        for pattern in exclude_patterns
+                    ):
+                        continue
+
+                    # Check ignore matchers
+                    if (
+                        respect_gitignore
+                        and any(
+                            matcher(str(entry_path))
+                            for matcher in combined_matchers.gitignore
+                        )
+                    ) or (
+                        respect_dir2textignore
+                        and any(
+                            matcher(str(entry_path))
+                            for matcher in combined_matchers.dir2textignore
+                        )
+                    ):
+                        log.debug(f"Skipping ignored file: {entry_path}")
+                        continue
+
+                    matches.append(entry_path)
+
+        except PermissionError:
+            log.warning(f"Permission denied accessing {current_dir}")
+            continue
+
+    matches = [m.relative_to(directory) for m in sorted(matches)]
+    log.debug(f"Found {len(matches)} matching files: {matches}")
+    return matches
