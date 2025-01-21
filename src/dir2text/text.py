@@ -66,6 +66,8 @@ def main(args: argparse.Namespace | None = None) -> None:
                 args.exclude_lock_files,
                 args.gitignore,
                 args.dir2textignore,
+                args.output_gitignore,
+                args.output_dir2textignore,
             )
             all_files.extend(matching_files)
             base_dir = path

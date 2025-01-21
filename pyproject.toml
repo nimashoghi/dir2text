@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dir2text"
-version = "0.9.1"
+version = "0.10.0"
 description = ""
 authors = ["Nima Shoghi <nimashoghi@gmail.com>"]
 readme = "README.md"

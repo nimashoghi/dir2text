@@ -217,6 +217,8 @@ def find_files_bfs(
     exclude_lock_files: bool = True,
     respect_gitignore: bool = True,
     respect_dir2textignore: bool = True,
+    output_dir2textignore: bool = False,
+    output_gitignore: bool = False,
 ) -> list[Path]:
     """
     Find files using breadth-first search while respecting nested ignore files.
@@ -229,6 +231,8 @@ def find_files_bfs(
         exclude_lock_files: Whether to exclude lock files
         respect_gitignore: Whether to respect .gitignore files
         respect_dir2textignore: Whether to respect .dir2textignore files
+        output_dir2textignore: Whether to output .dir2textignore files
+        output_gitignore: Whether to output .gitignore files
 
     Returns:
         List of matching file paths
@@ -295,6 +299,12 @@ def find_files_bfs(
                 else:  # Regular file
                     # Skip lock files if requested
                     if exclude_lock_files and entry.name.endswith(".lock"):
+                        continue
+
+                    # Skip ignore files if not explicitly requested
+                    if (not output_gitignore and entry.name == ".gitignore") or (
+                        not output_dir2textignore and entry.name == ".dir2textignore"
+                    ):
                         continue
 
                     # Check extension filter
