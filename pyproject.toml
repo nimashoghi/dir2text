@@ -1,41 +1,46 @@
-[tool.poetry]
+[project]
 name = "dir2text"
 version = "0.10.0"
 description = ""
-authors = ["Nima Shoghi <nimashoghi@gmail.com>"]
+authors = [{ name = "Nima Shoghi", email = "nimashoghi@gmail.com" }]
 readme = "README.md"
+requires-python = ">=3.10,<4.0.0"
+dependencies = [
+    "tiktoken",
+    "gitignore-parser",
+    "ipython",
+    "nbconvert",
+    "nbformat",
+    "tqdm",
+]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-tiktoken = "*"
-gitignore-parser = "*"
-ipython = "*"
-nbconvert = "*"
-nbformat = "*"
-tqdm = "*"
+[project.scripts]
+dir2text = "dir2text.text:main"
+dir2md = "dir2text.markdown:main"
+dir2xml = "dir2text.xml:main"
 
 [tool.poetry.group.dev.dependencies]
 ipykernel = "*"
 rich = "*"
 ruff = "*"
-pyright = "*"
+basedpyright = "*"
 
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
 
-[tool.poetry.scripts]
-dir2text = "dir2text.text:main"
-dir2md = "dir2text.markdown:main"
-dir2xml = "dir2text.xml:main"
-
-[tool.pyright]
+[tool.basedpyright]
 typeCheckingMode = "standard"
 deprecateTypingAliases = true
 strictListInference = true
 strictDictionaryInference = true
 strictSetInference = true
-reportPrivateImportUsage = false
+reportPrivateImportUsage = "none"
+reportMatchNotExhaustive = "warning"
+reportOverlappingOverload = "warning"
+reportUnnecessaryTypeIgnoreComment = "warning"
+reportImplicitOverride = "warning"
+reportIncompatibleMethodOverride = "information"
 
 [tool.ruff.lint]
 select = ["FA102", "FA100"]
