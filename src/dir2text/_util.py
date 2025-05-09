@@ -51,14 +51,16 @@ def create_common_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--include",
         "-i",
-        action="append",
+        action="extend",
+        nargs="*",
         default=[],
         help="Patterns to include (can be used multiple times)",
     )
     parser.add_argument(
         "--exclude",
         "-x",
-        action="append",
+        action="extend",
+        nargs="*",
         default=[],
         help="Patterns to exclude (can be used multiple times)",
     )
